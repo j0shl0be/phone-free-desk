@@ -42,12 +42,14 @@ vision:
   face_confidence: 0.7   # MediaPipe face detection
 
   # Performance optimization
-  frame_skip: 2  # Process every Nth frame for YOLOv8 (2 = process every other frame)
+  frame_skip: 3  # Process every Nth frame for YOLOv8 (3 = every 3rd frame, reduce lag)
+  yolo_imgsz: 320  # YOLOv8 image size (320 = fast, 640 = accurate, lower = faster)
 
   min_detection_frames: 3  # Consecutive frames needed to trigger
 
   # Debug mode - prints all detections to console
   debug: false
+  show_timing: false  # Show processing time for each component
 
 # API Configuration
 api:

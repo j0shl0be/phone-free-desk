@@ -40,9 +40,11 @@ def main():
     print(f"Phone confidence (YOLOv8): {vision_config.get('phone_confidence', 0.3)}")
     print(f"Hand confidence (MediaPipe): {vision_config.get('hand_confidence', 0.7)}")
     print(f"Face confidence (MediaPipe): {vision_config.get('face_confidence', 0.7)}")
-    print(f"Frame skip: {vision_config.get('frame_skip', 2)}")
+    print(f"Frame skip: {vision_config.get('frame_skip', 3)} (YOLOv8 runs every {vision_config.get('frame_skip', 3)} frames)")
+    print(f"YOLOv8 image size: {vision_config.get('yolo_imgsz', 320)} (lower = faster)")
     print(f"Debug mode: {vision_config.get('debug', False)}")
-    print("\nPress 'q' to quit\n")
+    print(f"Show timing: {vision_config.get('show_timing', False)}")
+    print("\nPress 'q' to quit, 't' to toggle timing info\n")
 
     # Initialize detector
     detector = HandDetector(
@@ -106,6 +108,10 @@ def main():
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
+            elif key == ord('t'):
+                # Toggle timing display
+                detector.show_timing = not detector.show_timing
+                print(f"Timing display: {'ON' if detector.show_timing else 'OFF'}")
 
     except KeyboardInterrupt:
         print("\nInterrupted")
@@ -120,7 +126,12 @@ def main():
     print("  - Hands: MediaPipe (precise hand landmark detection)")
     print("  - Face: MediaPipe (accurate face center targeting)")
     print()
-    print("Tips:")
+    print("Performance Tips:")
+    print("  - If laggy: Increase frame_skip (3→5) or reduce yolo_imgsz (320→256)")
+    print("  - If inaccurate: Decrease frame_skip (3→1) or increase yolo_imgsz (320→416)")
+    print("  - Enable show_timing: true in config to see bottlenecks")
+    print()
+    print("Detection Tips:")
     print("  - Ensure phone is clearly visible to camera")
     print("  - Good lighting helps MediaPipe hand/face detection")
     print("  - System triggers when HAND overlaps with phone")

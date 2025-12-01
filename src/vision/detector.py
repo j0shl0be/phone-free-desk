@@ -2,6 +2,7 @@ import cv2
 import logging
 import mediapipe as mp
 import numpy as np
+import time
 from typing import Optional, Tuple, Dict, List
 from pathlib import Path
 from ultralytics import YOLO
@@ -42,8 +43,10 @@ class HandDetector:
         self.phone_confidence = vision_config.get('phone_confidence', 0.3)
         self.hand_confidence = vision_config.get('hand_confidence', 0.7)
         self.face_confidence = vision_config.get('face_confidence', 0.7)
-        self.frame_skip = vision_config.get('frame_skip', 2)
+        self.frame_skip = vision_config.get('frame_skip', 3)
+        self.yolo_imgsz = vision_config.get('yolo_imgsz', 320)
         self.debug = vision_config.get('debug', False)
+        self.show_timing = vision_config.get('show_timing', False)
 
         # Frame counter for skipping
         self.frame_counter = 0
@@ -52,6 +55,7 @@ class HandDetector:
         # Initialize YOLOv8 model (for phone detection only)
         logger.info(f"Loading YOLOv8 model: {model_path}")
         logger.info(f"Phone confidence: {self.phone_confidence}")
+        logger.info(f"YOLOv8 image size: {self.yolo_imgsz} (lower = faster)")
         self.model = YOLO(model_path)
         self.CLASS_PHONE = 67  # cell phone in COCO dataset
 
@@ -109,8 +113,15 @@ class HandDetector:
                     return self.last_phone_detections[0]
                 return None
 
-        # Run YOLOv8 inference
-        results = self.model(frame, conf=0.1, verbose=False)[0]
+        # Run YOLOv8 inference with smaller image size for speed
+        if self.show_timing:
+            start_time = time.time()
+
+        results = self.model(frame, conf=0.1, verbose=False, imgsz=self.yolo_imgsz)[0]
+
+        if self.show_timing:
+            yolo_time = (time.time() - start_time) * 1000
+            logger.info(f"YOLOv8 inference: {yolo_time:.1f}ms")
 
         phone_detections = []
 
@@ -178,19 +189,31 @@ class HandDetector:
             - face_position: Dict with 'x', 'y' normalized coordinates (0-1) of face center (target), or None
             - frame: Current frame (or None if read failed)
         """
+        if self.show_timing:
+            frame_start = time.time()
+
         ret, frame = self.cap.read()
         if not ret:
             logger.warning("Failed to read frame from camera")
             return False, None, None
 
         # Detect phone using YOLOv8
+        if self.show_timing:
+            phone_start = time.time()
         phone_bbox = self._detect_phone(frame)
+        if self.show_timing:
+            phone_time = (time.time() - phone_start) * 1000
 
         # Convert BGR to RGB for MediaPipe
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # Detect hands using MediaPipe
+        if self.show_timing:
+            hand_start = time.time()
         hand_results = self.hands.process(rgb_frame)
+        if self.show_timing:
+            hand_time = (time.time() - hand_start) * 1000
+
         hand_touching_phone = False
         hand_bboxes = []
 
@@ -215,7 +238,12 @@ class HandDetector:
                         logger.info("HAND touching phone detected!")
 
         # Detect face using MediaPipe (for targeting)
+        if self.show_timing:
+            face_start = time.time()
         face_results = self.face_detection.process(rgb_frame)
+        if self.show_timing:
+            face_time = (time.time() - face_start) * 1000
+
         face_position = None
 
         if face_results.detections:
@@ -234,6 +262,10 @@ class HandDetector:
 
             if self.debug:
                 logger.info(f"FACE detected at ({face_position['x']:.3f}, {face_position['y']:.3f})")
+
+        if self.show_timing:
+            total_time = (time.time() - frame_start) * 1000
+            logger.info(f"Frame timing: Phone={phone_time:.1f}ms, Hand={hand_time:.1f}ms, Face={face_time:.1f}ms, Total={total_time:.1f}ms")
 
         return hand_touching_phone, face_position, frame
 
