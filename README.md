@@ -3,13 +3,13 @@
 A Raspberry Pi 5 project that uses computer vision and robotics to spray your face with water when you reach for your phone during Do Not Disturb mode.
 
 **How it works:**
-- **Improved edge detection** automatically finds dark rectangular phones
-- Hand detection triggers when your hand overlaps the phone
-- Face detection tracks your face location for targeting
+- **YOLOv8 object detection** finds your phone automatically (any color, any lighting)
+- Person detection triggers when you reach for the phone
+- Smart targeting aims at your head/face area
 - Inverse kinematics calculates servo angles to aim at your face
 - 2DOF robotic arm sprays water at your face
 
-**No zones, no markers required!** The system automatically detects your phone anywhere in the camera view using advanced edge detection optimized for dark rectangular objects like phones.
+**Powered by YOLOv8!** Uses state-of-the-art object detection trained on the COCO dataset. No calibration, no special setup - just works with any phone in any lighting condition.
 
 ## Architecture
 
@@ -47,12 +47,12 @@ A Raspberry Pi 5 project that uses computer vision and robotics to spray your fa
 - `GET /health` - Health check
 
 ### 2. Vision Detector (`src/vision/`)
-- Advanced edge detection for dark rectangular phones
-- Adaptive thresholding for varying lighting conditions
-- Scores candidates by darkness and size (prefers black phones)
-- MediaPipe Hands for real-time hand detection
-- MediaPipe Face Detection for face tracking (targeting)
-- Overlap detection between hand and phone (trigger)
+- **YOLOv8n (nano)** for lightweight object detection on Raspberry Pi 5
+- Detects "cell phone" class from COCO dataset (any phone, any color)
+- Detects "person" class for trigger and targeting
+- Overlap detection between person and phone (trigger)
+- Automatic targeting of person's head area (upper 20% of bbox)
+- Robust to lighting, phone colors, orientations
 - Runs at 10 FPS with Logitech C270 webcam
 
 ### 3. Hardware Controller (`src/hardware/`)
@@ -121,31 +121,33 @@ gpio:
   pump: 23     # Your GPIO pin for pump relay
 ```
 
-### 4. Test Phone Detection
+### 4. Test YOLOv8 Detection
+
+**Note:** On first run, YOLOv8 will automatically download the yolov8n.pt model weights (~6MB). This only happens once.
 
 ```bash
 source venv/bin/activate
 python3 scripts/test_detection.py
 ```
 
-This shows real-time visualization of all detection:
-- Phone (large green box)
-- Hand detection (cyan or red box)
-- Face targeting (blue box with crosshair)
+This shows real-time visualization of YOLOv8 detection:
+- Phone (green box with confidence score)
+- Person detection (cyan or red box with confidence)
+- Target crosshair (blue, aims at head area)
 
-When hand overlaps phone → RED box + "TOUCHING!" appears (this triggers spray!)
+When you reach for the phone → RED box + "TOUCHING!" appears (this triggers spray!)
 
-**Tips for better detection:**
-- Place phone on lighter surface (wooden desk, table)
-- Ensure good lighting
-- Clear clutter around phone
-- Works best with dark/black phones (perfect for Pixel 9 Pro!)
+**YOLOv8 Advantages:**
+- Works with ANY phone (iPhone, Android, any color, any case)
+- Robust to all lighting conditions (bright, dim, mixed)
+- No calibration or special setup required
+- Pre-trained on 1M+ images (COCO dataset)
+- Fast inference on Raspberry Pi 5 (~20-30 FPS with YOLOv8n)
 
-**If phone not detected:**
-- Increase lighting
-- Try different camera angle
-- Make sure phone is flat on desk
-- Clear other dark objects from view
+**If detection is unreliable:**
+- Lower confidence threshold in `config/settings.yaml` (try 0.5 or 0.4)
+- Ensure phone is clearly visible to camera (not covered/hidden)
+- Adjust camera angle to see both phone and person clearly
 
 ### 5. Calibration
 
