@@ -40,11 +40,11 @@ def main():
     print(f"Phone confidence (YOLOv8): {vision_config.get('phone_confidence', 0.3)}")
     print(f"Hand confidence (MediaPipe): {vision_config.get('hand_confidence', 0.7)}")
     print(f"Face confidence (MediaPipe): {vision_config.get('face_confidence', 0.7)}")
-    print(f"Frame skip: {vision_config.get('frame_skip', 3)} (YOLOv8 runs every {vision_config.get('frame_skip', 3)} frames)")
-    print(f"YOLOv8 image size: {vision_config.get('yolo_imgsz', 320)} (lower = faster)")
+    print(f"Phone detection interval: every {vision_config.get('phone_detection_interval', 60)} frames (phone is stationary)")
+    print(f"YOLOv8 image size: {vision_config.get('yolo_imgsz', 320)}")
     print(f"Debug mode: {vision_config.get('debug', False)}")
     print(f"Show timing: {vision_config.get('show_timing', False)}")
-    print("\nPress 'q' to quit, 't' to toggle timing info\n")
+    print("\nPress 'q' to quit, 't' to toggle timing info, 'r' to re-detect phone\n")
 
     # Initialize detector
     detector = HandDetector(
@@ -112,6 +112,10 @@ def main():
                 # Toggle timing display
                 detector.show_timing = not detector.show_timing
                 print(f"Timing display: {'ON' if detector.show_timing else 'OFF'}")
+            elif key == ord('r'):
+                # Force re-detect phone
+                detector.phone_detect_counter = detector.phone_detection_interval
+                print("Forcing phone re-detection on next frame...")
 
     except KeyboardInterrupt:
         print("\nInterrupted")
@@ -127,8 +131,10 @@ def main():
     print("  - Face: MediaPipe (accurate face center targeting)")
     print()
     print("Performance Tips:")
-    print("  - If laggy: Increase frame_skip (3→5) or reduce yolo_imgsz (320→256)")
-    print("  - If inaccurate: Decrease frame_skip (3→1) or increase yolo_imgsz (320→416)")
+    print("  - Phone detection runs every 60 frames (1x per 6 seconds @ 10fps)")
+    print("  - Hand/face detection runs EVERY frame for instant response")
+    print("  - If phone moves: Press 'r' to force re-detection")
+    print("  - If laggy hands: Reduce hand_confidence or face_confidence")
     print("  - Enable show_timing: true in config to see bottlenecks")
     print()
     print("Detection Tips:")
