@@ -11,21 +11,42 @@ logger = logging.getLogger(__name__)
 class HandDetector:
     """Detects phone, hands, and people using YOLOv8. Triggers when hand overlaps with phone."""
 
-    def __init__(self, camera_config: dict, confidence_threshold: float = 0.7):
+    def __init__(self, camera_config: dict, vision_config: dict = None):
         """
         Initialize detector with YOLOv8.
 
         Args:
             camera_config: Camera configuration dict
-            confidence_threshold: Minimum confidence for detection (0-1)
+            vision_config: Vision configuration dict (optional, for backwards compat)
         """
-        self.confidence_threshold = confidence_threshold
         self.camera_config = camera_config
 
+        # Handle both old and new API
+        if vision_config is None:
+            # Old API: second param was confidence_threshold
+            vision_config = {'phone_confidence': 0.3, 'person_confidence': 0.5}
+        elif isinstance(vision_config, (int, float)):
+            # Old API: second param was confidence_threshold
+            vision_config = {'phone_confidence': float(vision_config), 'person_confidence': float(vision_config)}
+
+        self.vision_config = vision_config
+
+        # Get config values
+        model_path = vision_config.get('model', 'yolov8n.pt')
+        self.phone_confidence = vision_config.get('phone_confidence', 0.3)
+        self.person_confidence = vision_config.get('person_confidence', 0.5)
+        self.frame_skip = vision_config.get('frame_skip', 2)
+        self.debug = vision_config.get('debug', False)
+
+        # Frame counter for skipping
+        self.frame_counter = 0
+        self.last_detections = {'phone': [], 'person': []}
+
         # Initialize YOLOv8 model
-        # Using YOLOv8n (nano) for speed on Raspberry Pi
-        logger.info("Loading YOLOv8n model...")
-        self.model = YOLO('yolov8n.pt')
+        logger.info(f"Loading YOLOv8 model: {model_path}")
+        logger.info(f"Phone confidence: {self.phone_confidence}, Person confidence: {self.person_confidence}")
+        logger.info(f"Frame skip: {self.frame_skip}, Debug: {self.debug}")
+        self.model = YOLO(model_path)
 
         # COCO dataset class IDs
         self.CLASS_PHONE = 67  # cell phone
@@ -48,15 +69,27 @@ class HandDetector:
 
         logger.info(f"Detector initialized at {self.frame_width}x{self.frame_height}")
 
-    def _detect_objects(self, frame: cv2.Mat) -> Dict[str, List[Tuple[int, int, int, int, float]]]:
+    def _detect_objects(self, frame: cv2.Mat, force: bool = False) -> Dict[str, List[Tuple[int, int, int, int, float]]]:
         """
         Detect phone, hands, and people in frame using YOLOv8.
+
+        Args:
+            frame: Input frame
+            force: Force detection even if frame should be skipped
 
         Returns:
             Dict with 'phone', 'person' keys, each containing list of (x, y, w, h, confidence) tuples
         """
-        # Run YOLOv8 inference
-        results = self.model(frame, conf=self.confidence_threshold, verbose=False)[0]
+        # Frame skipping for performance (unless forced)
+        if not force:
+            self.frame_counter += 1
+            if self.frame_counter % self.frame_skip != 0:
+                # Return cached detections
+                return self.last_detections
+
+        # Run YOLOv8 inference with low confidence to catch everything
+        # We'll filter by separate thresholds below
+        results = self.model(frame, conf=0.1, verbose=False)[0]
 
         detections = {
             'phone': [],
@@ -74,10 +107,20 @@ class HandDetector:
             # Convert to xywh format
             x, y, w, h = x1, y1, x2 - x1, y2 - y1
 
-            if cls_id == self.CLASS_PHONE:
+            if cls_id == self.CLASS_PHONE and confidence >= self.phone_confidence:
                 detections['phone'].append((x, y, w, h, confidence))
-            elif cls_id == self.CLASS_PERSON:
+                if self.debug:
+                    logger.info(f"PHONE detected: conf={confidence:.3f}, bbox=({x},{y},{w},{h})")
+            elif cls_id == self.CLASS_PERSON and confidence >= self.person_confidence:
                 detections['person'].append((x, y, w, h, confidence))
+                if self.debug:
+                    logger.info(f"PERSON detected: conf={confidence:.3f}, bbox=({x},{y},{w},{h})")
+
+        # Cache detections
+        self.last_detections = detections
+
+        if self.debug and not detections['phone']:
+            logger.info("No phone detected in this frame")
 
         return detections
 
@@ -173,8 +216,8 @@ class HandDetector:
         if not ret:
             return None
 
-        # Detect objects
-        detections = self._detect_objects(frame)
+        # Detect objects (force=True to not skip frames during visualization)
+        detections = self._detect_objects(frame, force=True)
 
         # Draw phone detections
         phone_bbox = None

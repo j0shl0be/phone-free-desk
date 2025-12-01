@@ -37,13 +37,16 @@ def main():
     print("\nYOLOv8 is robust to all lighting/colors - no special setup needed!\n")
 
     print(f"Camera: {camera_config['width']}x{camera_config['height']} @ {camera_config['fps']}fps")
-    print(f"Confidence threshold: {vision_config['confidence_threshold']}")
+    print(f"Phone confidence: {vision_config.get('phone_confidence', 0.3)}")
+    print(f"Person confidence: {vision_config.get('person_confidence', 0.5)}")
+    print(f"Frame skip: {vision_config.get('frame_skip', 2)}")
+    print(f"Debug mode: {vision_config.get('debug', False)}")
     print("\nPress 'q' to quit\n")
 
     # Initialize detector
     detector = HandDetector(
         camera_config,
-        vision_config['confidence_threshold']
+        vision_config  # Pass full vision config
     )
 
     print("Starting detection... Place your phone on the desk and move your hand near it.\n")

@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
 """
-Detection Zone Calibration Script
+Detection Zone Calibration Script [DEPRECATED]
 
+*** THIS SCRIPT IS DEPRECATED ***
+
+With YOLOv8, manual zone calibration is no longer needed!
+YOLOv8 automatically detects phones anywhere in the camera frame.
+
+Use scripts/test_detection.py instead to verify phone detection.
+
+---
+
+This script was used for the old zone-based detection system.
 Interactive script to define the phone detection zone in the camera frame.
 """
 

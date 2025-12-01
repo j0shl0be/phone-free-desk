@@ -33,8 +33,20 @@ camera:
 
 # Detection sensitivity
 vision:
-  confidence_threshold: 0.7  # MediaPipe detection confidence (0-1)
+  # YOLOv8 model selection
+  model: 'yolov8n.pt'  # Options: 'yolov8n.pt' (COCO) or path to custom model
+
+  # Confidence thresholds (0-1)
+  phone_confidence: 0.3  # Lower = more sensitive (COCO phone detection is weak)
+  person_confidence: 0.5  # Person detection is reliable
+
+  # Performance optimization
+  frame_skip: 2  # Process every Nth frame (2 = process every other frame)
+
   min_detection_frames: 3  # Consecutive frames needed to trigger
+
+  # Debug mode - prints all detections to console
+  debug: false
 
 # API Configuration
 api:

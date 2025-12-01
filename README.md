@@ -144,10 +144,22 @@ When you reach for the phone → RED box + "TOUCHING!" appears (this triggers sp
 - Pre-trained on 1M+ images (COCO dataset)
 - Fast inference on Raspberry Pi 5 (~20-30 FPS with YOLOv8n)
 
-**If detection is unreliable:**
-- Lower confidence threshold in `config/settings.yaml` (try 0.5 or 0.4)
-- Ensure phone is clearly visible to camera (not covered/hidden)
-- Adjust camera angle to see both phone and person clearly
+**If phone detection is unreliable:**
+
+COCO's "cell phone" class was trained on phones held up (selfies), not phones lying flat. Try:
+
+1. **Lower confidence threshold** in `config/settings.yaml`:
+   ```yaml
+   vision:
+     phone_confidence: 0.2  # or even 0.1
+     debug: true  # See what YOLO detects
+   ```
+
+2. **Use a specialized phone detection model** from Roboflow (see [docs/CUSTOM_PHONE_DETECTION.md](docs/CUSTOM_PHONE_DETECTION.md))
+   - Pre-trained models specifically for phones on desks
+   - Much better accuracy than COCO
+
+3. **Train your own model** on your specific phone/desk (30-100 images, best results)
 
 ### 5. Calibration
 

@@ -61,7 +61,7 @@ class PhoneFreeDesk:
         logger.info("Initializing vision...")
         self.hand_detector = HandDetector(
             self.config['camera'],
-            self.config['vision']['confidence_threshold']
+            self.config['vision']  # Pass full vision config for YOLOv8 settings
         )
 
         # Initialize kinematics
