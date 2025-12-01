@@ -1,6 +1,15 @@
 # Phone Free Desk
 
-A Raspberry Pi 5 project that uses computer vision and robotics to spray you with water when you reach for your phone during Do Not Disturb mode.
+A Raspberry Pi 5 project that uses computer vision and robotics to spray your face with water when you reach for your phone during Do Not Disturb mode.
+
+**How it works:**
+- Phone detection finds your phone anywhere in camera view
+- Hand detection triggers when your hand overlaps the phone
+- Face detection tracks your face location for targeting
+- Inverse kinematics calculates servo angles to aim at your face
+- 2DOF robotic arm sprays water at your face
+
+**No zones required!** The system automatically detects your phone using edge detection and contour analysis, looking for phone-shaped rectangles in the frame.
 
 ## Architecture
 
@@ -38,20 +47,24 @@ A Raspberry Pi 5 project that uses computer vision and robotics to spray you wit
 - `GET /health` - Health check
 
 ### 2. Vision Detector (`src/vision/`)
+- Edge-based phone detection (automatic, no calibration needed)
 - MediaPipe Hands for real-time hand detection
-- Configurable detection zone for phone area
+- MediaPipe Face Detection for face tracking (targeting)
+- Overlap detection between hand and phone (trigger)
 - Runs at 10 FPS with Logitech C270 webcam
 
 ### 3. Hardware Controller (`src/hardware/`)
 - 2-DOF robotic arm with servo motors
+- Inverse kinematics for camera-to-servo mapping
 - Water pump control via GPIO relay
-- Coordinated spray sequence
+- Dynamic targeting based on face position
 
 ### 4. Orchestrator (`src/core/`)
 - Main control loop
-- Coordinates vision detection with spray activation
+- Trigger: Hand touching phone + DND active + face detected
+- Target: Detected face position
 - 10-second cooldown between sprays
-- Requires multiple consecutive detections to trigger
+- Requires multiple consecutive detections to prevent false triggers
 
 ## Hardware Requirements
 
@@ -106,25 +119,51 @@ gpio:
   pump: 23     # Your GPIO pin for pump relay
 ```
 
-### 4. Calibration
+### 4. Calibration and Testing
 
-#### Calibrate Arm Positions
+**IMPORTANT:** Calibration must be done in this order!
+
+#### Step 1: Test Phone Detection
+
+```bash
+source venv/bin/activate
+python3 scripts/test_detection.py
+```
+
+This shows real-time visualization of phone, hand, and face detection. Use it to:
+- Verify your phone is detected (green box)
+- See when hand overlaps phone (red box + "TOUCHING!")
+- Check face targeting (blue box with crosshair)
+
+**Tips for better phone detection:**
+- Use good lighting
+- Place phone on contrasting surface (dark phone on light desk, or vice versa)
+- Avoid cluttered backgrounds
+- If detection is unreliable, consider placing a colored sticker or ArUco marker on your phone case
+
+#### Step 2: Calibrate Arm Rest Position
 
 ```bash
 source venv/bin/activate
 python3 scripts/calibrate_arm.py
 ```
 
-This interactive script lets you find the correct servo angles for rest and spray positions.
+Find the servo angles for the arm's rest position (where it sits when not spraying).
 
-#### Calibrate Detection Zone
+#### Step 3: Calibrate Kinematics (Targeting)
 
 ```bash
 source venv/bin/activate
-python3 scripts/calibrate_zone.py
+python3 scripts/calibrate_kinematics.py
 ```
 
-This shows the camera feed and lets you draw a box around where your phone sits.
+This is the most important step! It teaches the arm how to aim at different positions:
+1. For each corner of the camera view (top-left, top-right, bottom-left, bottom-right)
+2. Place a marker (your hand, a sticky note, etc.) in that corner
+3. Manually adjust the servos to aim the arm at the marker
+4. Save the calibration for that corner
+
+This creates a mapping between camera coordinates and servo angles, allowing the arm to accurately aim at your face wherever you are in frame.
 
 ### 5. Test Run
 
@@ -243,16 +282,27 @@ tail -f /var/log/phone-free-desk.log
 ```
 phone-free-desk/
 ├── src/
-│   ├── api/              # FastAPI server
-│   ├── vision/           # Hand detection
-│   ├── hardware/         # Servo and pump control
-│   ├── core/             # Orchestrator
-│   └── main.py           # Entry point
+│   ├── api/                    # FastAPI server
+│   │   ├── server.py           # App setup
+│   │   └── routes.py           # DND endpoints
+│   ├── vision/                 # Computer vision
+│   │   ├── detector.py         # Hand & face detection
+│   │   └── zone.py             # Phone zone definition
+│   ├── hardware/               # Hardware control
+│   │   ├── arm.py              # Servo arm controller
+│   │   ├── pump.py             # Water pump
+│   │   ├── kinematics.py       # Inverse kinematics
+│   │   └── spray_sequence.py   # Spray routine
+│   ├── core/                   # Main logic
+│   │   ├── orchestrator.py     # Coordinates everything
+│   │   └── state.py            # State management
+│   └── main.py                 # Entry point
 ├── config/
-│   └── settings.yaml     # Configuration
+│   └── settings.yaml           # All configuration
 ├── scripts/
-│   ├── calibrate_arm.py  # Servo calibration
-│   └── calibrate_zone.py # Zone calibration
+│   ├── test_detection.py       # Test phone/hand/face detection
+│   ├── calibrate_arm.py        # Arm rest position
+│   └── calibrate_kinematics.py # Targeting calibration
 ├── systemd/
 │   └── phone-free-desk.service
 └── requirements.txt
@@ -263,11 +313,14 @@ phone-free-desk/
 Test individual components:
 
 ```bash
-# Test camera
-python3 scripts/calibrate_zone.py
+# Test all detection (phone, hand, face)
+python3 scripts/test_detection.py
 
 # Test servos
 python3 scripts/calibrate_arm.py
+
+# Test targeting
+python3 scripts/calibrate_kinematics.py
 
 # Test pump (BE CAREFUL - will spray!)
 python3 -c "from hardware import WaterPump; p = WaterPump(23); p.spray(0.5); p.cleanup()"

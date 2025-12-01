@@ -31,15 +31,7 @@ camera:
   height: 480
   fps: 10
 
-# Phone detection zone (normalized coordinates 0-1)
-# These should be calibrated using scripts/calibrate_zone.py
-detection_zone:
-  x: 0.4  # Left edge (40% from left)
-  y: 0.4  # Top edge (40% from top)
-  width: 0.2  # Width (20% of frame)
-  height: 0.2  # Height (20% of frame)
-
-# Hand detection sensitivity
+# Detection sensitivity
 vision:
   confidence_threshold: 0.7  # MediaPipe detection confidence (0-1)
   min_detection_frames: 3  # Consecutive frames needed to trigger
@@ -48,3 +40,36 @@ vision:
 api:
   host: "0.0.0.0"  # Listen on all interfaces
   port: 8000
+
+# Kinematics Calibration
+# Maps camera coordinates to servo angles for accurate targeting
+# These should be calibrated using scripts/calibrate_kinematics.py
+kinematics:
+  corners:
+    # Top-left corner of camera view
+    top_left:
+      cam_x: 0.0
+      cam_y: 0.0
+      servo1: 60   # Servo 1 angle to aim here
+      servo2: 120  # Servo 2 angle to aim here
+
+    # Top-right corner of camera view
+    top_right:
+      cam_x: 1.0
+      cam_y: 0.0
+      servo1: 120
+      servo2: 120
+
+    # Bottom-left corner of camera view
+    bottom_left:
+      cam_x: 0.0
+      cam_y: 1.0
+      servo1: 60
+      servo2: 80
+
+    # Bottom-right corner of camera view
+    bottom_right:
+      cam_x: 1.0
+      cam_y: 1.0
+      servo1: 120
+      servo2: 80

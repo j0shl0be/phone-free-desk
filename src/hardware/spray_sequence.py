@@ -24,16 +24,22 @@ class SpraySequence:
         self.pump_config = config['pump']
         logger.info("Spray sequence initialized")
 
-    def execute(self):
-        """Execute the full spray sequence."""
-        logger.info("Starting spray sequence")
+    def execute(self, target_servo1: float, target_servo2: float):
+        """
+        Execute the full spray sequence aimed at a specific target.
+
+        Args:
+            target_servo1: Target angle for servo 1 (0-180 degrees)
+            target_servo2: Target angle for servo 2 (0-180 degrees)
+        """
+        logger.info(f"Starting spray sequence targeting ({target_servo1:.1f}°, {target_servo2:.1f}°)")
 
         try:
-            # Step 1: Move arm to spray position
-            logger.debug("Moving arm to spray position")
+            # Step 1: Move arm to target position
+            logger.debug("Moving arm to target position")
             self.arm.move_smooth(
-                self.servo_config['servo_1_spray'],
-                self.servo_config['servo_2_spray'],
+                target_servo1,
+                target_servo2,
                 self.servo_config['movement_duration']
             )
 

@@ -3,7 +3,7 @@ import logging
 import threading
 from typing import Callable
 from .state import SystemState
-from ..hardware import SpraySequence
+from ..hardware import SpraySequence, ArmKinematics
 from ..vision import HandDetector
 from ..api.routes import get_dnd_state
 
@@ -17,6 +17,7 @@ class Orchestrator:
         self,
         spray_sequence: SpraySequence,
         hand_detector: HandDetector,
+        kinematics: ArmKinematics,
         config: dict
     ):
         """
@@ -25,10 +26,12 @@ class Orchestrator:
         Args:
             spray_sequence: SpraySequence instance
             hand_detector: HandDetector instance
+            kinematics: ArmKinematics instance
             config: Full configuration dict
         """
         self.spray_sequence = spray_sequence
         self.hand_detector = hand_detector
+        self.kinematics = kinematics
         self.config = config
 
         # Initialize system state
@@ -47,18 +50,25 @@ class Orchestrator:
         """Main vision detection loop (runs in separate thread)."""
         logger.info("Vision loop started")
 
+        # Track last detected face position for targeting
+        last_face_position = None
+
         while self._running:
             try:
                 # Get DND status from API state
                 dnd_state = get_dnd_state()
                 dnd_active = dnd_state["active"]
 
-                # Detect hand in zone
-                hand_detected, _ = self.hand_detector.detect_hand_in_zone()
+                # Detect hand touching phone and face position
+                hand_touching_phone, face_position, _ = self.hand_detector.detect_hand_in_zone()
 
-                if hand_detected:
+                # Update last face position if detected
+                if face_position:
+                    last_face_position = face_position
+
+                if hand_touching_phone:
                     detection_count = self.state.increment_detection()
-                    logger.debug(f"Hand detected ({detection_count}/{self.min_detection_frames})")
+                    logger.debug(f"Hand touching phone ({detection_count}/{self.min_detection_frames})")
                 else:
                     # Reset counter if no hand detected
                     if self.state.get_detection_count() > 0:
@@ -69,13 +79,19 @@ class Orchestrator:
                 should_spray = (
                     dnd_active and
                     self.state.get_detection_count() >= self.min_detection_frames and
-                    self.state.can_spray()
+                    self.state.can_spray() and
+                    last_face_position is not None  # Must have a face target
                 )
 
                 if should_spray:
                     logger.warning("TRIGGERING SPRAY SEQUENCE!")
                     try:
-                        self.spray_sequence.execute()
+                        # Calculate servo angles to aim at face
+                        servo1, servo2 = self.kinematics.get_spray_angles(last_face_position)
+                        logger.info(f"Targeting face at ({last_face_position['x']:.3f}, {last_face_position['y']:.3f}) -> Servos ({servo1:.1f}°, {servo2:.1f}°)")
+
+                        # Execute spray with calculated angles
+                        self.spray_sequence.execute(servo1, servo2)
                         self.state.record_spray()
                     except Exception as e:
                         logger.error(f"Error executing spray sequence: {e}")

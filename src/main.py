@@ -16,8 +16,8 @@ from threading import Thread
 
 # Import components
 from api.server import create_app
-from hardware import RoboticArm, WaterPump, SpraySequence
-from vision import HandDetector, PhoneZone
+from hardware import RoboticArm, WaterPump, SpraySequence, ArmKinematics
+from vision import HandDetector
 from core import Orchestrator
 
 # Setup logging
@@ -59,18 +59,21 @@ class PhoneFreeDesk:
 
         # Initialize vision
         logger.info("Initializing vision...")
-        self.zone = PhoneZone.from_config(self.config['detection_zone'])
         self.hand_detector = HandDetector(
             self.config['camera'],
-            self.zone,
             self.config['vision']['confidence_threshold']
         )
+
+        # Initialize kinematics
+        logger.info("Initializing kinematics...")
+        self.kinematics = ArmKinematics(self.config.get('kinematics', {}))
 
         # Initialize orchestrator
         logger.info("Initializing orchestrator...")
         self.orchestrator = Orchestrator(
             self.spray_sequence,
             self.hand_detector,
+            self.kinematics,
             self.config
         )
 
