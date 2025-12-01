@@ -108,9 +108,10 @@ class HandDetector:
         if not force:
             self.frame_counter += 1
             if self.frame_counter % self.frame_skip != 0:
-                # Return cached detection
+                # Return cached detection (only x, y, w, h - drop confidence)
                 if self.last_phone_detections:
-                    return self.last_phone_detections[0]
+                    x, y, w, h, conf = self.last_phone_detections[0]
+                    return (x, y, w, h)
                 return None
 
         # Run YOLOv8 inference with smaller image size for speed
