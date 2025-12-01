@@ -31,3 +31,6 @@ test_*.jpg
 test_*.png
 *.mp4
 *.avi
+
+# Generated ArUco markers
+aruco_markers/

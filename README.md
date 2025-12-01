@@ -3,13 +3,13 @@
 A Raspberry Pi 5 project that uses computer vision and robotics to spray your face with water when you reach for your phone during Do Not Disturb mode.
 
 **How it works:**
-- Phone detection finds your phone anywhere in camera view
+- **Improved edge detection** automatically finds dark rectangular phones
 - Hand detection triggers when your hand overlaps the phone
 - Face detection tracks your face location for targeting
 - Inverse kinematics calculates servo angles to aim at your face
 - 2DOF robotic arm sprays water at your face
 
-**No zones required!** The system automatically detects your phone using edge detection and contour analysis, looking for phone-shaped rectangles in the frame.
+**No zones, no markers required!** The system automatically detects your phone anywhere in the camera view using advanced edge detection optimized for dark rectangular objects like phones.
 
 ## Architecture
 
@@ -47,7 +47,9 @@ A Raspberry Pi 5 project that uses computer vision and robotics to spray your fa
 - `GET /health` - Health check
 
 ### 2. Vision Detector (`src/vision/`)
-- Edge-based phone detection (automatic, no calibration needed)
+- Advanced edge detection for dark rectangular phones
+- Adaptive thresholding for varying lighting conditions
+- Scores candidates by darkness and size (prefers black phones)
 - MediaPipe Hands for real-time hand detection
 - MediaPipe Face Detection for face tracking (targeting)
 - Overlap detection between hand and phone (trigger)
@@ -119,29 +121,35 @@ gpio:
   pump: 23     # Your GPIO pin for pump relay
 ```
 
-### 4. Calibration and Testing
-
-**IMPORTANT:** Calibration must be done in this order!
-
-#### Step 1: Test Phone Detection
+### 4. Test Phone Detection
 
 ```bash
 source venv/bin/activate
 python3 scripts/test_detection.py
 ```
 
-This shows real-time visualization of phone, hand, and face detection. Use it to:
-- Verify your phone is detected (green box)
-- See when hand overlaps phone (red box + "TOUCHING!")
-- Check face targeting (blue box with crosshair)
+This shows real-time visualization of all detection:
+- Phone (large green box)
+- Hand detection (cyan or red box)
+- Face targeting (blue box with crosshair)
 
-**Tips for better phone detection:**
-- Use good lighting
-- Place phone on contrasting surface (dark phone on light desk, or vice versa)
-- Avoid cluttered backgrounds
-- If detection is unreliable, consider placing a colored sticker or ArUco marker on your phone case
+When hand overlaps phone → RED box + "TOUCHING!" appears (this triggers spray!)
 
-#### Step 2: Calibrate Arm Rest Position
+**Tips for better detection:**
+- Place phone on lighter surface (wooden desk, table)
+- Ensure good lighting
+- Clear clutter around phone
+- Works best with dark/black phones (perfect for Pixel 9 Pro!)
+
+**If phone not detected:**
+- Increase lighting
+- Try different camera angle
+- Make sure phone is flat on desk
+- Clear other dark objects from view
+
+### 5. Calibration
+
+#### Step 1: Calibrate Arm Rest Position
 
 ```bash
 source venv/bin/activate
@@ -150,7 +158,7 @@ python3 scripts/calibrate_arm.py
 
 Find the servo angles for the arm's rest position (where it sits when not spraying).
 
-#### Step 3: Calibrate Kinematics (Targeting)
+#### Step 2: Calibrate Kinematics (Targeting)
 
 ```bash
 source venv/bin/activate

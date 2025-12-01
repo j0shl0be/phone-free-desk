@@ -37,12 +37,7 @@ class HandDetector:
             min_detection_confidence=confidence_threshold
         )
 
-        # Initialize phone detector (MobileNet SSD)
-        # Note: Model files will need to be downloaded during setup
-        # Using COCO-pretrained MobileNet SSD which can detect "cell phone"
-        self.phone_detector = None
-        self.phone_class_id = 77  # Cell phone class in COCO dataset
-        logger.info("Phone detection using color/shape analysis (fallback mode)")
+        logger.info("Phone detection using improved edge detection for dark rectangles")
 
         # Initialize camera
         self.cap = cv2.VideoCapture(camera_config['device_index'])
@@ -61,7 +56,7 @@ class HandDetector:
 
     def _detect_phone(self, frame: cv2.Mat) -> Optional[Tuple[int, int, int, int]]:
         """
-        Detect phone in frame using edge detection and contour analysis.
+        Detect dark rectangular phone on desk using improved edge detection.
 
         Returns:
             (x, y, w, h) bounding box or None if no phone detected
@@ -69,47 +64,67 @@ class HandDetector:
         # Convert to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # Apply Gaussian blur
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        # Apply bilateral filter to reduce noise while keeping edges sharp
+        filtered = cv2.bilateralFilter(gray, 9, 75, 75)
 
-        # Edge detection
-        edges = cv2.Canny(blurred, 50, 150)
+        # Use adaptive thresholding to handle varying lighting
+        binary = cv2.adaptiveThreshold(
+            filtered, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV, 11, 2
+        )
 
         # Find contours
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Look for phone-like rectangles
         phone_candidates = []
 
         for contour in contours:
             # Get bounding rectangle
             x, y, w, h = cv2.boundingRect(contour)
 
-            # Filter by size (phone should be reasonable size in frame)
-            min_area = (self.frame_width * self.frame_height) * 0.02  # At least 2% of frame
-            max_area = (self.frame_width * self.frame_height) * 0.3   # At most 30% of frame
+            # Filter by size - phone should be 3-25% of frame
+            min_area = (self.frame_width * self.frame_height) * 0.03
+            max_area = (self.frame_width * self.frame_height) * 0.25
             area = w * h
 
             if area < min_area or area > max_area:
                 continue
 
-            # Filter by aspect ratio (phones are usually portrait: 1.5-2.5 or landscape: 0.4-0.7)
-            aspect_ratio = h / w if h > w else w / h
-            if not (1.3 < aspect_ratio < 2.8):
+            # Filter by aspect ratio - phones are rectangular (1.5:1 to 2.5:1)
+            aspect_ratio = max(h, w) / min(h, w)
+            if aspect_ratio < 1.5 or aspect_ratio > 2.8:
                 continue
 
-            # Check if contour is roughly rectangular
-            approx = cv2.approxPolyDP(contour, 0.04 * cv2.arcLength(contour, True), True)
-            if len(approx) >= 4:  # At least 4 vertices (rectangular-ish)
-                phone_candidates.append((x, y, w, h, area))
+            # Approximate contour to polygon
+            perimeter = cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
 
-        # Return largest candidate
+            # Phones have 4 corners (rectangular)
+            if len(approx) < 4 or len(approx) > 8:
+                continue
+
+            # Check if object is dark (phones are usually dark/black)
+            roi = gray[y:y+h, x:x+w]
+            if roi.size > 0:
+                mean_intensity = np.mean(roi)
+                # Prefer darker objects (intensity < 100)
+                darkness_score = max(0, 100 - mean_intensity)
+            else:
+                darkness_score = 0
+
+            # Calculate score based on area and darkness
+            score = area * (1 + darkness_score / 100)
+
+            phone_candidates.append((x, y, w, h, score))
+
+        # Return candidate with highest score
         if phone_candidates:
             phone_candidates.sort(key=lambda x: x[4], reverse=True)
             x, y, w, h, _ = phone_candidates[0]
             return (x, y, w, h)
 
         return None
+
 
     def _check_overlap(self, box1: Tuple[int, int, int, int],
                       box2: Tuple[int, int, int, int]) -> bool:
@@ -218,9 +233,13 @@ class HandDetector:
         phone_bbox = self._detect_phone(frame)
         if phone_bbox:
             x, y, w, h = phone_bbox
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
             cv2.putText(frame, "PHONE", (x, y - 10),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        else:
+            # Show warning if no phone detected
+            cv2.putText(frame, "NO PHONE DETECTED",
+                       (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
         # Convert BGR to RGB for MediaPipe
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

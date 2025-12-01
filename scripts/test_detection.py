@@ -29,11 +29,12 @@ def main():
     vision_config = config['vision']
 
     print("This script visualizes all detection systems:")
-    print("  - Phone detection (green box)")
+    print("  - Phone detection (green box - detects dark rectangles)")
     print("  - Hand detection (cyan or red box)")
     print("  - Face detection (blue box with crosshair)")
     print("\nWhen your hand overlaps the phone, the hand box turns RED")
-    print("and 'TOUCHING!' appears - this is what triggers the spray!\n")
+    print("and 'TOUCHING!' appears - this is what triggers the spray!")
+    print("\nTIP: Works best with dark phones on lighter surfaces\n")
 
     print(f"Camera: {camera_config['width']}x{camera_config['height']} @ {camera_config['fps']}fps")
     print(f"Confidence threshold: {vision_config['confidence_threshold']}")
@@ -86,7 +87,7 @@ def main():
             legend_y = frame.shape[0] - 100
             cv2.putText(frame, "Legend:", (10, legend_y),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            cv2.rectangle(frame, (10, legend_y + 10), (30, legend_y + 30), (0, 255, 0), 2)
+            cv2.rectangle(frame, (10, legend_y + 10), (30, legend_y + 30), (0, 255, 0), 3)
             cv2.putText(frame, "Phone", (35, legend_y + 27),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             cv2.rectangle(frame, (10, legend_y + 35), (30, legend_y + 55), (255, 255, 0), 2)
@@ -110,13 +111,17 @@ def main():
     cv2.destroyAllWindows()
 
     print(f"\nTest complete! Total triggers: {trigger_count}")
-    print("\nTips:")
-    print("  - If phone isn't detected, try:")
-    print("    - Better lighting")
-    print("    - Phone on a contrasting surface (e.g., dark phone on light desk)")
-    print("    - Avoid cluttered backgrounds")
-    print("  - If phone detection is unreliable, consider using an ArUco marker")
-    print("    or colored sticker on your phone case")
+    print("\nTips for better phone detection:")
+    print("  - Place phone on a lighter surface (desk, table)")
+    print("  - Ensure good lighting (not too dark)")
+    print("  - Avoid cluttered backgrounds")
+    print("  - Phone should be flat on desk")
+    print("  - Dark/black phones work best")
+    print()
+    print("If detection is unreliable:")
+    print("  - Try adjusting camera angle")
+    print("  - Clear objects around the phone")
+    print("  - Increase lighting")
 
 
 if __name__ == "__main__":
