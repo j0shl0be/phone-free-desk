@@ -64,14 +64,11 @@ class HandDetector:
         # Convert to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # Apply bilateral filter to reduce noise while keeping edges sharp
-        filtered = cv2.bilateralFilter(gray, 9, 75, 75)
+        # Simple Gaussian blur
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        # Use adaptive thresholding to handle varying lighting
-        binary = cv2.adaptiveThreshold(
-            filtered, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV, 11, 2
-        )
+        # SIMPLE threshold: dark objects (< 100) on light background
+        _, binary = cv2.threshold(blurred, 100, 255, cv2.THRESH_BINARY_INV)
 
         # Find contours
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -82,42 +79,32 @@ class HandDetector:
             # Get bounding rectangle
             x, y, w, h = cv2.boundingRect(contour)
 
-            # Filter by size - phone should be 3-25% of frame
-            min_area = (self.frame_width * self.frame_height) * 0.03
-            max_area = (self.frame_width * self.frame_height) * 0.25
+            # Filter by size - phone should be 2-30% of frame
+            min_area = (self.frame_width * self.frame_height) * 0.02
+            max_area = (self.frame_width * self.frame_height) * 0.30
             area = w * h
 
             if area < min_area or area > max_area:
                 continue
 
-            # Filter by aspect ratio - phones are rectangular (1.5:1 to 2.5:1)
+            # Filter by aspect ratio - phones are 1.3:1 to 3:1
             aspect_ratio = max(h, w) / min(h, w)
-            if aspect_ratio < 1.5 or aspect_ratio > 2.8:
+            if aspect_ratio < 1.3 or aspect_ratio > 3.0:
                 continue
 
-            # Approximate contour to polygon
-            perimeter = cv2.arcLength(contour, True)
-            approx = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
-
-            # Phones have 4 corners (rectangular)
-            if len(approx) < 4 or len(approx) > 8:
-                continue
-
-            # Check if object is dark (phones are usually dark/black)
+            # Must be dark - check actual brightness
             roi = gray[y:y+h, x:x+w]
             if roi.size > 0:
                 mean_intensity = np.mean(roi)
-                # Prefer darker objects (intensity < 100)
-                darkness_score = max(0, 100 - mean_intensity)
-            else:
-                darkness_score = 0
+                if mean_intensity > 80:  # Too bright, skip
+                    continue
 
-            # Calculate score based on area and darkness
-            score = area * (1 + darkness_score / 100)
+                # Score = size * darkness
+                darkness = 100 - mean_intensity
+                score = area * darkness
+                phone_candidates.append((x, y, w, h, score))
 
-            phone_candidates.append((x, y, w, h, score))
-
-        # Return candidate with highest score
+        # Return darkest & largest
         if phone_candidates:
             phone_candidates.sort(key=lambda x: x[4], reverse=True)
             x, y, w, h, _ = phone_candidates[0]
