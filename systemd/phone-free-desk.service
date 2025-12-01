@@ -1,0 +1,31 @@
+[Unit]
+Description=Phone Free Desk - Water Spray System
+After=network.target pigpiod.service
+Wants=pigpiod.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/phone-free-desk/src
+Environment="PATH=/home/pi/phone-free-desk/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/pi/phone-free-desk/venv/bin/python3 /home/pi/phone-free-desk/src/main.py
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=phone-free-desk
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

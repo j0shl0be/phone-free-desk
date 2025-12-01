@@ -1,0 +1,50 @@
+# Phone Free Desk Configuration
+
+# Hardware GPIO Pins
+gpio:
+  servo_1: 17  # First servo (base rotation)
+  servo_2: 18  # Second servo (arm tilt)
+  pump: 23     # Water pump relay
+
+# Servo Configuration
+servo:
+  # Servo 1 angles (degrees, 0-180)
+  servo_1_rest: 90
+  servo_1_spray: 45
+
+  # Servo 2 angles (degrees, 0-180)
+  servo_2_rest: 90
+  servo_2_spray: 120
+
+  # Movement speed (seconds to reach position)
+  movement_duration: 1.0
+
+# Pump Configuration
+pump:
+  spray_duration: 2.0  # seconds
+  cooldown_period: 10.0  # seconds between sprays
+
+# Vision Configuration
+camera:
+  device_index: 0  # USB camera device (usually /dev/video0)
+  width: 640
+  height: 480
+  fps: 10
+
+# Phone detection zone (normalized coordinates 0-1)
+# These should be calibrated using scripts/calibrate_zone.py
+detection_zone:
+  x: 0.4  # Left edge (40% from left)
+  y: 0.4  # Top edge (40% from top)
+  width: 0.2  # Width (20% of frame)
+  height: 0.2  # Height (20% of frame)
+
+# Hand detection sensitivity
+vision:
+  confidence_threshold: 0.7  # MediaPipe detection confidence (0-1)
+  min_detection_frames: 3  # Consecutive frames needed to trigger
+
+# API Configuration
+api:
+  host: "0.0.0.0"  # Listen on all interfaces
+  port: 8000
