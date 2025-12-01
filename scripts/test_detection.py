@@ -28,17 +28,18 @@ def main():
     camera_config = config['camera']
     vision_config = config['vision']
 
-    print("This script visualizes YOLOv8 object detection:")
-    print("  - Phone detection (green box - YOLO cell phone class)")
-    print("  - Person detection (cyan or red box)")
-    print("  - Target (blue crosshair on person's head area)")
-    print("\nWhen you move near the phone, the person box turns RED")
+    print("This script visualizes the hybrid detection system:")
+    print("  - Phone detection (green box - YOLOv8 cell phone class)")
+    print("  - Hand detection (cyan or red box - MediaPipe Hands)")
+    print("  - Face targeting (blue box with crosshair - MediaPipe Face)")
+    print("\nWhen your HAND overlaps the phone, hand box turns RED")
     print("and 'TOUCHING!' appears - this is what triggers the spray!")
-    print("\nYOLOv8 is robust to all lighting/colors - no special setup needed!\n")
+    print("\nHybrid system: YOLOv8 for phones + MediaPipe for hands/face\n")
 
     print(f"Camera: {camera_config['width']}x{camera_config['height']} @ {camera_config['fps']}fps")
-    print(f"Phone confidence: {vision_config.get('phone_confidence', 0.3)}")
-    print(f"Person confidence: {vision_config.get('person_confidence', 0.5)}")
+    print(f"Phone confidence (YOLOv8): {vision_config.get('phone_confidence', 0.3)}")
+    print(f"Hand confidence (MediaPipe): {vision_config.get('hand_confidence', 0.7)}")
+    print(f"Face confidence (MediaPipe): {vision_config.get('face_confidence', 0.7)}")
     print(f"Frame skip: {vision_config.get('frame_skip', 2)}")
     print(f"Debug mode: {vision_config.get('debug', False)}")
     print("\nPress 'q' to quit\n")
@@ -64,13 +65,13 @@ def main():
                 break
 
             # Get detection status
-            person_touching, person_position, _ = detector.detect_hand_in_zone()
+            hand_touching, face_position, _ = detector.detect_hand_in_zone()
 
             # Show trigger status
-            status_text = "TRIGGERED!" if person_touching else "Ready"
-            status_color = (0, 0, 255) if person_touching else (0, 255, 0)
+            status_text = "TRIGGERED!" if hand_touching else "Ready"
+            status_color = (0, 0, 255) if hand_touching else (0, 255, 0)
 
-            if person_touching:
+            if hand_touching:
                 trigger_count += 1
 
             # Draw status
@@ -79,11 +80,11 @@ def main():
             cv2.putText(frame, f"Trigger count: {trigger_count}", (10, 60),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-            if person_position:
-                cv2.putText(frame, f"Target: ({person_position['x']:.2f}, {person_position['y']:.2f})",
+            if face_position:
+                cv2.putText(frame, f"Target: ({face_position['x']:.2f}, {face_position['y']:.2f})",
                            (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
             else:
-                cv2.putText(frame, "No target detected", (10, 90),
+                cv2.putText(frame, "No face target", (10, 90),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (128, 128, 128), 2)
 
             # Show legend
@@ -94,10 +95,10 @@ def main():
             cv2.putText(frame, "Phone", (35, legend_y + 27),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             cv2.rectangle(frame, (10, legend_y + 35), (30, legend_y + 55), (255, 255, 0), 2)
-            cv2.putText(frame, "Person (not touching)", (35, legend_y + 52),
+            cv2.putText(frame, "Hand (not touching)", (35, legend_y + 52),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             cv2.rectangle(frame, (10, legend_y + 60), (30, legend_y + 80), (0, 0, 255), 2)
-            cv2.putText(frame, "Person (TOUCHING!)", (35, legend_y + 77),
+            cv2.putText(frame, "Hand (TOUCHING!)", (35, legend_y + 77),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
             cv2.imshow('Detection Test', frame)
@@ -114,16 +115,21 @@ def main():
     cv2.destroyAllWindows()
 
     print(f"\nTest complete! Total triggers: {trigger_count}")
-    print("\nYOLOv8 Detection Tips:")
-    print("  - Works with any phone color/type (YOLOv8 trained on COCO dataset)")
-    print("  - Good lighting helps but not strictly required")
-    print("  - Phone should be visible to camera (not covered)")
-    print("  - System triggers when person/hand overlaps with phone")
+    print("\nHybrid Detection System:")
+    print("  - Phone: YOLOv8 (works with any phone color/type)")
+    print("  - Hands: MediaPipe (precise hand landmark detection)")
+    print("  - Face: MediaPipe (accurate face center targeting)")
+    print()
+    print("Tips:")
+    print("  - Ensure phone is clearly visible to camera")
+    print("  - Good lighting helps MediaPipe hand/face detection")
+    print("  - System triggers when HAND overlaps with phone")
+    print("  - Targets the center of detected FACE")
     print()
     print("If detection is unreliable:")
-    print("  - Ensure phone is clearly visible in frame")
-    print("  - Adjust camera angle to see both phone and person")
-    print("  - Consider lowering confidence threshold in config/settings.yaml")
+    print("  - Lower phone_confidence in config/settings.yaml (for phone)")
+    print("  - Lower hand_confidence/face_confidence (for hands/face)")
+    print("  - Adjust camera angle to see phone, hands, and face clearly")
 
 
 if __name__ == "__main__":

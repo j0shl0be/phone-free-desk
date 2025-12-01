@@ -33,15 +33,16 @@ camera:
 
 # Detection sensitivity
 vision:
-  # YOLOv8 model selection
+  # YOLOv8 model selection (for phone detection only)
   model: 'yolov8n.pt'  # Options: 'yolov8n.pt' (COCO) or path to custom model
 
   # Confidence thresholds (0-1)
-  phone_confidence: 0.3  # Lower = more sensitive (COCO phone detection is weak)
-  person_confidence: 0.5  # Person detection is reliable
+  phone_confidence: 0.3  # YOLOv8 phone detection (lower = more sensitive)
+  hand_confidence: 0.7   # MediaPipe hand detection
+  face_confidence: 0.7   # MediaPipe face detection
 
   # Performance optimization
-  frame_skip: 2  # Process every Nth frame (2 = process every other frame)
+  frame_skip: 2  # Process every Nth frame for YOLOv8 (2 = process every other frame)
 
   min_detection_frames: 3  # Consecutive frames needed to trigger
 

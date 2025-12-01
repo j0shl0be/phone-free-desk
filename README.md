@@ -4,12 +4,12 @@ A Raspberry Pi 5 project that uses computer vision and robotics to spray your fa
 
 **How it works:**
 - **YOLOv8 object detection** finds your phone automatically (any color, any lighting)
-- Person detection triggers when you reach for the phone
-- Smart targeting aims at your head/face area
+- **MediaPipe Hands** triggers when your hand overlaps the phone
+- **MediaPipe Face Detection** tracks your face for precise targeting
 - Inverse kinematics calculates servo angles to aim at your face
 - 2DOF robotic arm sprays water at your face
 
-**Powered by YOLOv8!** Uses state-of-the-art object detection trained on the COCO dataset. No calibration, no special setup - just works with any phone in any lighting condition.
+**Hybrid detection system!** Combines YOLOv8 for robust phone detection with MediaPipe for precise hand and face tracking. Best of both worlds!
 
 ## Architecture
 
@@ -47,12 +47,17 @@ A Raspberry Pi 5 project that uses computer vision and robotics to spray your fa
 - `GET /health` - Health check
 
 ### 2. Vision Detector (`src/vision/`)
-- **YOLOv8n (nano)** for lightweight object detection on Raspberry Pi 5
-- Detects "cell phone" class from COCO dataset (any phone, any color)
-- Detects "person" class for trigger and targeting
-- Overlap detection between person and phone (trigger)
-- Automatic targeting of person's head area (upper 20% of bbox)
-- Robust to lighting, phone colors, orientations
+**Hybrid detection system combining three technologies:**
+- **YOLOv8n** for phone detection
+  - Detects "cell phone" class from COCO dataset
+  - Works with any phone, any color, any lighting
+  - Frame skipping for performance (configurable)
+- **MediaPipe Hands** for trigger detection
+  - Precise hand landmark detection
+  - Triggers when hand overlaps with phone bbox
+- **MediaPipe Face Detection** for targeting
+  - Accurate face center detection
+  - Used to aim the water spray at your face
 - Runs at 10 FPS with Logitech C270 webcam
 
 ### 3. Hardware Controller (`src/hardware/`)
@@ -121,7 +126,7 @@ gpio:
   pump: 23     # Your GPIO pin for pump relay
 ```
 
-### 4. Test YOLOv8 Detection
+### 4. Test Hybrid Detection
 
 **Note:** On first run, YOLOv8 will automatically download the yolov8n.pt model weights (~6MB). This only happens once.
 
@@ -130,19 +135,19 @@ source venv/bin/activate
 python3 scripts/test_detection.py
 ```
 
-This shows real-time visualization of YOLOv8 detection:
-- Phone (green box with confidence score)
-- Person detection (cyan or red box with confidence)
-- Target crosshair (blue, aims at head area)
+This shows real-time visualization of the hybrid detection system:
+- **Phone** (green box with confidence score) - YOLOv8
+- **Hand** (cyan or red box with landmarks) - MediaPipe Hands
+- **Face** (blue box with crosshair) - MediaPipe Face Detection
 
-When you reach for the phone → RED box + "TOUCHING!" appears (this triggers spray!)
+When your **hand** overlaps the phone → RED box + "TOUCHING!" appears (this triggers spray!)
 
-**YOLOv8 Advantages:**
-- Works with ANY phone (iPhone, Android, any color, any case)
-- Robust to all lighting conditions (bright, dim, mixed)
+**Hybrid System Advantages:**
+- **Phone detection:** YOLOv8 works with any phone (iPhone, Android, any color/case)
+- **Hand trigger:** MediaPipe provides precise hand detection (not whole person)
+- **Face targeting:** MediaPipe face detection for accurate aiming
 - No calibration or special setup required
-- Pre-trained on 1M+ images (COCO dataset)
-- Fast inference on Raspberry Pi 5 (~20-30 FPS with YOLOv8n)
+- Fast inference on Raspberry Pi 5 with frame skipping
 
 **If phone detection is unreliable:**
 

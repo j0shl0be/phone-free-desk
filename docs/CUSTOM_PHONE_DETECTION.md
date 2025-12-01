@@ -1,8 +1,13 @@
 # Using Custom Phone Detection Models
 
-The default YOLOv8 model uses the COCO dataset, which has a "cell phone" class (ID 67). However, **COCO's phone detection is not ideal for phones lying flat on desks** - it was trained mostly on phones held up prominently in selfies.
+The system uses a **hybrid detection approach**:
+- **YOLOv8** for phone detection (COCO "cell phone" class, ID 67)
+- **MediaPipe Hands** for detecting when your hand reaches for the phone
+- **MediaPipe Face** for targeting the spray
 
-If you're having trouble detecting your phone, you have several options:
+However, **COCO's phone detection is not ideal for phones lying flat on desks** - it was trained mostly on phones held up prominently in selfies.
+
+If you're having trouble detecting your phone (but hand/face detection works fine), you have several options:
 
 ## Option 1: Adjust Confidence Threshold (Easiest)
 
