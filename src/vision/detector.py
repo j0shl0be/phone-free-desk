@@ -78,7 +78,7 @@ class HandDetector:
             min_detection_confidence=self.face_confidence
         )
 
-        logger.info(f"Frame skip: {self.frame_skip}, Debug: {self.debug}")
+        logger.info(f"Debug: {self.debug}, Show timing: {self.show_timing}")
 
         # Initialize camera
         self.cap = cv2.VideoCapture(camera_config['device_index'])
@@ -292,15 +292,8 @@ class HandDetector:
         if phone_bbox:
             x, y, w, h = phone_bbox
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-
-            # Show confidence if available
-            if self.last_phone_detections:
-                conf = self.last_phone_detections[0][4]
-                cv2.putText(frame, f"PHONE {conf:.2f}", (x, y - 10),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-            else:
-                cv2.putText(frame, "PHONE", (x, y - 10),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(frame, "PHONE (cached)", (x, y - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
         else:
             # Show warning if no phone detected
             cv2.putText(frame, "NO PHONE DETECTED",
