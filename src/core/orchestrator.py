@@ -93,6 +93,10 @@ class Orchestrator:
                         # Execute spray with calculated angles
                         self.spray_sequence.execute(servo1, servo2)
                         self.state.record_spray()
+
+                        # Invalidate phone cache so it re-detects after cooldown
+                        self.hand_detector.invalidate_phone_cache()
+                        logger.info("Phone cache invalidated - will re-detect after cooldown")
                     except Exception as e:
                         logger.error(f"Error executing spray sequence: {e}")
 

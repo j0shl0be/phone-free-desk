@@ -43,20 +43,19 @@ class HandDetector:
         self.phone_confidence = vision_config.get('phone_confidence', 0.3)
         self.hand_confidence = vision_config.get('hand_confidence', 0.7)
         self.face_confidence = vision_config.get('face_confidence', 0.7)
-        self.phone_detection_interval = vision_config.get('phone_detection_interval', 60)
+        self.phone_cache_duration = vision_config.get('phone_cache_duration', 30.0)  # seconds
         self.yolo_imgsz = vision_config.get('yolo_imgsz', 320)
         self.debug = vision_config.get('debug', False)
         self.show_timing = vision_config.get('show_timing', False)
 
         # Phone detection tracking (phone is stationary, rarely update)
-        self.frame_counter = 0
         self.last_phone_bbox = None  # Cached phone position
-        self.phone_detect_counter = 0  # Force re-detection periodically
+        self.phone_detection_time = None  # Timestamp of last phone detection
 
         # Initialize YOLOv8 model (for phone detection only)
         logger.info(f"Loading YOLOv8 model: {model_path}")
         logger.info(f"Phone confidence: {self.phone_confidence}")
-        logger.info(f"Phone detection interval: every {self.phone_detection_interval} frames (phone is stationary)")
+        logger.info(f"Phone cache duration: {self.phone_cache_duration}s (stays valid even when occluded)")
         logger.info(f"YOLOv8 image size: {self.yolo_imgsz} (lower = faster)")
         self.model = YOLO(model_path)
         self.CLASS_PHONE = 67  # cell phone in COCO dataset
@@ -99,7 +98,8 @@ class HandDetector:
         """
         Detect phone using YOLOv8.
 
-        Phone is stationary, so we cache detection and only re-run occasionally.
+        Phone is stationary, so we cache detection for phone_cache_duration seconds.
+        Cache remains valid even if phone is occluded by hand.
 
         Args:
             frame: Input frame
@@ -108,16 +108,19 @@ class HandDetector:
         Returns:
             (x, y, w, h) bounding box or None if no phone detected
         """
+        current_time = time.time()
+
         # Check if we should re-detect phone (unless forced)
         if not force:
-            self.phone_detect_counter += 1
-
             # Return cached phone position if available and not expired
-            if self.last_phone_bbox is not None and self.phone_detect_counter < self.phone_detection_interval:
-                return self.last_phone_bbox
-
-            # Reset counter and re-detect
-            self.phone_detect_counter = 0
+            if self.last_phone_bbox is not None and self.phone_detection_time is not None:
+                age = current_time - self.phone_detection_time
+                if age < self.phone_cache_duration:
+                    # Cache is still valid
+                    return self.last_phone_bbox
+                else:
+                    if self.debug:
+                        logger.info(f"Phone cache expired after {age:.1f}s, re-detecting...")
 
         # Run YOLOv8 inference with smaller image size for speed
         if self.show_timing:
@@ -127,7 +130,7 @@ class HandDetector:
 
         if self.show_timing:
             yolo_time = (time.time() - start_time) * 1000
-            logger.info(f"YOLOv8 inference: {yolo_time:.1f}ms (cached for {self.phone_detection_interval} frames)")
+            logger.info(f"YOLOv8 inference: {yolo_time:.1f}ms (caching for {self.phone_cache_duration}s)")
 
         phone_detections = []
 
@@ -154,11 +157,22 @@ class HandDetector:
             phone_detections.sort(key=lambda x: x[4], reverse=True)
             x, y, w, h, conf = phone_detections[0]
             self.last_phone_bbox = (x, y, w, h)
+            self.phone_detection_time = current_time
             return (x, y, w, h)
 
         # No phone found - clear cache
         self.last_phone_bbox = None
+        self.phone_detection_time = None
         return None
+
+    def invalidate_phone_cache(self):
+        """
+        Invalidate the phone cache, forcing re-detection on next frame.
+        Call this after spray cooldown completes.
+        """
+        if self.debug:
+            logger.info("Phone cache invalidated - will re-detect on next frame")
+        self.phone_detection_time = None
 
     def _check_overlap(self, box1: Tuple[int, int, int, int],
                       box2: Tuple[int, int, int, int]) -> bool:

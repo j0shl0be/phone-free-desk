@@ -42,7 +42,7 @@ vision:
   face_confidence: 0.7   # MediaPipe face detection
 
   # Performance optimization (phone is stationary, hands move fast)
-  phone_detection_interval: 60  # Re-detect phone every N frames (phone doesn't move!)
+  phone_cache_duration: 30.0  # Cache phone position for N seconds (stays valid even if occluded)
   yolo_imgsz: 320  # YOLOv8 image size (320 = fast, 640 = accurate, lower = faster)
 
   min_detection_frames: 3  # Consecutive frames needed to trigger

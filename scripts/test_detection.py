@@ -40,7 +40,7 @@ def main():
     print(f"Phone confidence (YOLOv8): {vision_config.get('phone_confidence', 0.3)}")
     print(f"Hand confidence (MediaPipe): {vision_config.get('hand_confidence', 0.7)}")
     print(f"Face confidence (MediaPipe): {vision_config.get('face_confidence', 0.7)}")
-    print(f"Phone detection interval: every {vision_config.get('phone_detection_interval', 60)} frames (phone is stationary)")
+    print(f"Phone cache duration: {vision_config.get('phone_cache_duration', 30.0)}s (stays valid even when occluded)")
     print(f"YOLOv8 image size: {vision_config.get('yolo_imgsz', 320)}")
     print(f"Debug mode: {vision_config.get('debug', False)}")
     print(f"Show timing: {vision_config.get('show_timing', False)}")
@@ -114,8 +114,8 @@ def main():
                 print(f"Timing display: {'ON' if detector.show_timing else 'OFF'}")
             elif key == ord('r'):
                 # Force re-detect phone
-                detector.phone_detect_counter = detector.phone_detection_interval
-                print("Forcing phone re-detection on next frame...")
+                detector.invalidate_phone_cache()
+                print("Phone cache invalidated - will re-detect on next frame...")
 
     except KeyboardInterrupt:
         print("\nInterrupted")
@@ -131,10 +131,10 @@ def main():
     print("  - Face: MediaPipe (accurate face center targeting)")
     print()
     print("Performance Tips:")
-    print("  - Phone detection runs every 60 frames (1x per 6 seconds @ 10fps)")
+    print("  - Phone position cached for 30 seconds (stays valid even when occluded)")
     print("  - Hand/face detection runs EVERY frame for instant response")
     print("  - If phone moves: Press 'r' to force re-detection")
-    print("  - If laggy hands: Reduce hand_confidence or face_confidence")
+    print("  - Phone cache auto-expires after spray cooldown")
     print("  - Enable show_timing: true in config to see bottlenecks")
     print()
     print("Detection Tips:")
